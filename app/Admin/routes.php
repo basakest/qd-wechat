@@ -13,4 +13,7 @@ Route::group([
 ], function (Router $router) {
     $router->get('/', 'HomeController@index');
     $router->resource('users', 'UserController');
+    $router->get('/menus', 'MenuController@index');
+    $router->get('/menu', 'MenuController@menu');
+    $router->post('/test', 'MenuController@test');
 });
