@@ -4,20 +4,36 @@ namespace App\Http\Controllers;
 
 use Illuminate\Http\Request;
 use EasyWeChat\Factory;
+use Exception;
 
 class MenusController extends Controller
 {
-    protected $config = [
-        'app_id' => 'wx49f960539fb6da0c',
-        'secret' => 'da7c7ae0a568e41e81322d0eef0b7bf4',
-        'response_type' => 'array',
-    ];
-
     protected $app;
 
+    /**
+     * 公众号菜单的对应类型
+     *
+     * @var array
+     */
+    protected $menuTypes = [
+        'view' => '打开网址',
+        'text' => '响应文本',
+        'image' => '响应图片',
+        'miniprogram' => '打开小程序'
+    ];
+
+    /**
+     * 创建公众号实例
+     */
     public function __construct()
     {
-        $this->app = Factory::officialAccount($this->config);
+        if (!($this->app instanceof \EasyWeChat\OfficialAccount\Application)) {
+            $this->app = Factory::officialAccount([
+                'app_id' => env('WECHAT_APP_ID'),
+                'secret' => env('WECHAT_APP_SECRET'),
+                'response_type' => env('WECHAT_RESPONSE_TYPE', 'array')
+            ]);
+        }
     }
 
     /**
@@ -27,16 +43,27 @@ class MenusController extends Controller
      */
     public function getNameOfParentMenus() : array
     {
-        $this->app = Factory::officialAccount($this->config);
+        //dd($this->app->menu->list());
         $menus = $this->app->menu->list();
-        $result = [];
-        foreach($menus['menu']['button'] as $k => $v) {
-            $result[$k] = $v['name'];
+        if (!isset($menus['menu'])) {
+            return [];
+        } else {
+            $result = [];
+            foreach($menus['menu']['button'] as $k => $v) {
+                $result[$k] = $v['name'];
+            }
+            return $result;
         }
-        return $result;
     }
 
-    public function determineWhetherTiTleExists($title, $h1Titles)
+    /**
+     * 判断指定的一级标题是否存在
+     *
+     * @param string $title
+     * @param array $h1Titles
+     * @return void
+     */
+    public function determineWhetherTiTleExists(string $title, array $h1Titles)
     {
         $index = null;
         foreach($h1Titles as $i => $v) {
@@ -48,48 +75,97 @@ class MenusController extends Controller
         return $index;
     }
 
-    public function checkNum($index)
+    /**
+     * 查看指定一级标题下的二级标题数量是否超过上限或查看该公众号下的一级标题数量是否超过上限
+     *
+     * @param integer $index
+     * @return void
+     */
+    public function checkNum(int $index = -1) : bool
     {
-        $num = count($this->app->menu->list()['menu']['button'][$index]['sub_button']);
-        if ($num >= 5) {
-            echo '超过上限，无法创建';
-            return false;
+        if ($index == -1) {
+            if (isset($this->app->menu->list()['menu'])) {
+                $num = count($this->app->menu->list()['menu']['button']);
+                if ($num >= 3) {
+                    echo '该公众号下的一级标题数量超过上限，无法创建';
+                    return false;
+                }
+            }
+            return true;
+        } else {
+            $num = count($this->app->menu->list()['menu']['button'][$index]['sub_button']);
+            if ($num >= 5) {
+                echo '该一级标题下的二级标题超过数量上限，无法创建';
+                return false;
+            }
+            return true;
         }
-        return true;
     }
 
-    public function insert($index, array $new) : bool
+    /**
+     * 将指定二级标题的信息插入到标题数组中，并执行创建操作
+     *
+     * @param integer $index
+     * @param array $new
+     * @return boolean
+     */
+    public function insert(int $index, array $new) : bool
     {
-        $this->app = Factory::officialAccount($this->config);
         $list = $this->app->menu->list();
         $temp = $list['menu']['button'][$index]['sub_button'];
         $temp[] = $new;
         $list['menu']['button'][$index]['sub_button'] = $temp;
-        //dd($list['menu']['button']);
-        //dd($list['menu']['button'][$index]['sub_button']);
         $this->app->menu->create($list['menu']['button']);
-        // $origin = $this->app->menu->list()['menu']['button'][$index]['sub_button'];
-        // $origin[] = $new;
+        return true;
+    }
+
+    public function createParentMenu(array $new): bool
+    {
         //dd($new);
-        //$this->app->menu->list()['menu']['button'][$index]['sub_button'][] = $new;
-        // $this->app->menu->list()['menu']['button'][$index]['sub_button'] = array_merge($this->app->menu->list()['menu']['button'][$index]['sub_button'], $new);
-        //$this->app->menu->list()['menu']['button'][$index]['sub_button'][] = $new;
-        //dd($this->app->menu->list()['menu']['button'][$index]['sub_button']);
-        //$this->app->menu->create($this->app->menu->list()['menu']['button']);
+        $list = $this->app->menu->list();
+        if (isset($list['menu'])) {
+            $temp = $list['menu']['button'];
+            $temp[] = $new;
+            $list['menu']['button'] = $temp;
+        } else {
+            $list['menu']['button'] = [];
+            $list['menu']['button'][] = $new;
+        }
+        //dd($list);
+        try {
+            $this->app->menu->create($list['menu']['button']);
+        } catch (Exception $e) {
+            echo $e->getMessage();
+        }
         return true;
     }
 
     public function createMenu($parent, $new)
     {
         $parentTitles = $this->getNameOfParentMenus();
-        $index = $this->determineWhetherTiTleExists($parent, $parentTitles);
-        if ($index !== null) {
-            // 执行到这里说明该父级标题存在
-            // 接下来判断该父级标题下的二级标题数量是否超过上限
-            if ($this->checkNum($index)) {
-                // $this->success('Processed successfully.', '/menu');
-                // 执行到这里说明该父级标题下的二级标题数量没有超过上限，可以执行创建操作
-                $this->insert($index, $new);
+        if ($parent == 'root') {
+            // 这种情况下创建一级标题
+            // 先判断该一级标题是否存在
+            $index = $this->determineWhetherTiTleExists($new['name'], $parentTitles);
+            //dd($index);
+            if ($index === null) {
+                // 该一级标题不存在，查看该公众号下的一级标题数量是否超过上限
+                if ($this->checkNum()) {
+                    // 满足条件的话创建一级标题
+                    //dd($new);
+                    $this->createParentMenu($new);
+                }
+            }
+        } else {
+            $index = $this->determineWhetherTiTleExists($parent, $parentTitles);
+            if ($index !== null) {
+                // 执行到这里说明该父级标题存在
+                // 接下来判断该父级标题下的二级标题数量是否超过上限
+                if ($this->checkNum($index)) {
+                    // $this->success('Processed successfully.', '/menu');
+                    // 执行到这里说明该父级标题下的二级标题数量没有超过上限，可以执行创建操作
+                    $this->insert($index, $new);
+                }
             }
         }
     }
@@ -101,19 +177,41 @@ class MenusController extends Controller
      */
     public function index()
     {
+        dd($this->app->menu->list());
         $input = [];
-        $input['parent'] = '今日歌曲';
+        $input['parent'] = 'alice';
         $input['type'] = 'view';
-        $input['name'] = 'alice';
-        $input['key'] = 'admin';
-        $input['url'] = 'https://unbug.github.io/codelf/';
+        $input['name'] = 'pan';
+        $input['key'] = '';
+        $input['url'] = 'https://learnku.com/';
+        //$input['url'] = 'https://learnku.com/';
         $parentName = $input['parent'];
         $new = [];
-        $new['type'] = $input['type'];
-        $new['name'] = $input['name'];
-        $new['key'] = $input['key'];
-        $new['url'] = $input['url'];
+        if ($input['type']) {
+            $new['type'] = $input['type'];
+        }
+        if ($input['name']) {
+            $new['name'] = $input['name'];
+        }
+        if ($input['key']) {
+            $new['key'] = $input['key'];
+        }
+        if ($input['url']) {
+            $new['url'] = $input['url'];
+        }
+        if (!isset($new['type'])) {
+            $new['sub_button'] = [];
+        }
+        //dd($new);
+        /*
+        $input['type'] ?? $new['type'] = $input['type'];
+        $input['name'] ?? $new['name'] = $input['name'];
+        $input['key'] ?? $new['key'] = $input['key'];
+        $input['url'] ?? $new['url'] = $input['url'];
+        */
+        //dd($input, $new);
         $res = $this->createMenu($parentName, $new);
+        return $res;
     }
 
     /**
@@ -177,8 +275,8 @@ class MenusController extends Controller
      * @param  int  $id
      * @return \Illuminate\Http\Response
      */
-    public function destroy($id)
+    public function destroy()
     {
-        //
+        $this->app->menu->delete();
     }
 }

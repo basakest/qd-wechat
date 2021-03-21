@@ -15,5 +15,5 @@ Route::group([
     $router->resource('users', 'UserController');
     $router->get('/menus', 'MenuController@index');
     $router->get('/menu', 'MenuController@menu');
-    $router->post('/test', 'MenuController@test');
+    $router->post('/create', 'MenuController@createMenu');
 });

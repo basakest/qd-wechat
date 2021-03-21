@@ -18,3 +18,4 @@ Route::get('/', function () {
 });
 
 Route::get('wechat', 'MenusController@index');
+Route::get('wechat/delete', 'MenusController@destroy');
