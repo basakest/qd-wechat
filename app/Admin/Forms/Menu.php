@@ -6,6 +6,8 @@ use Dcat\Admin\Widgets\Form;
 use Symfony\Component\HttpFoundation\Response;
 use EasyWeChat\Factory;
 use Exception;
+use App\Models\Menu as MenuModel;
+use Dcat\Admin\Widgets\Tab;
 
 class Menu extends Form
 {
@@ -225,6 +227,7 @@ class Menu extends Form
                 if ($this->checkNum()) {
                     // 满足条件的话创建一级标题
                     $this->createParentMenu($new);
+                    MenuModel::create($new);
                 }
             }
         } else {
@@ -235,6 +238,8 @@ class Menu extends Form
                 if ($this->checkNum($index)) {
                     // 执行到这里说明该父级标题下的二级标题数量没有超过上限，可以执行创建操作
                     $this->insert($index, $new);
+                    $new['parent_id'] = $index;
+                    MenuModel::create($new);
                 }
             }
         }

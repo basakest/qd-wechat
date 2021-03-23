@@ -10,6 +10,9 @@ use EasyWeChat\Factory;
 use App\Admin\Forms\Menu;
 use Dcat\Admin\Layout\Column;
 use Dcat\Admin\Widgets\Alert;
+use Dcat\Admin\Grid;
+use App\Models\Menu as MenuModel;
+use Dcat\Admin\Widgets\Tab;
 
 class MenuController extends Controller
 {
@@ -176,12 +179,44 @@ class MenuController extends Controller
 
     public function menu(Content $content, Menu $form)
     {
+        // 最上面的警告框
+        $alert = Alert::make('公众号菜单只分为一级和二级，一级最大个数是3个，二级最大个数是5个', '提示');
+        $alert->info();
+        $alert->icon('feather icon-info');
+
+        // grid
+        $grids = Grid::make(new MenuModel(), function (Grid $grid) {
+            // 第一列显示id字段，并将这一列设置为可排序列
+            $grid->column('id', 'ID')->sortable();
+            // 第二列显示title字段，由于title字段名和Grid对象的title方法冲突，所以用Grid的column()方法代替
+            $grid->column('name');
+            $grid->column('type');
+            // 下面为两个时间字段的列显示
+            $grid->column('created_at');
+            $grid->column('updated_at');
+        });
+
+        //
+        $tab = Tab::make();
+        // 第一个参数是选项卡标题，第二个参数是内容，第三个参数是是否选中
+        foreach (MenuModel::get() as $menu) {
+            $tab->add('<p>' . $menu->name . "<a><i class='feather icon-lock float-right'></i></a></p>" , '');
+        }
+
+        //$tab->add('选项2', 'html');
+        // 添加选项卡链接
+        //$tab->addLink('跳转链接', 'http://xxx');
+        //return $content->body($tab->withCard());
+
         return $content
             ->header('公众号菜单')
             ->description('列表')
             ->breadcrumb(['text' => '用户管理', 'url' => '/admin/users'])
-            ->row(function(Row $row) use ($form) {
-                $row->column(6, 'section1');
+            ->row(function(Row $row) use ($form, $alert, $grids, $tab) {
+                $row->column(12, function(Column $column) use ($alert) {
+                    $column->row($alert);
+                });
+                $row->column(6, $tab->withCard()->vertical());
                 $row->column(6, $form);
             });
     }
