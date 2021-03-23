@@ -12,8 +12,11 @@ Route::group([
     'middleware'    => config('admin.route.middleware'),
 ], function (Router $router) {
     $router->get('/', 'HomeController@index');
+    $router->get('/test', 'TestController@index');
+    $router->post('/insert', 'TestController@insertToDatabase');
+    $router->get('/create', 'TestController@createWechatMenu');
     $router->resource('users', 'UserController');
     $router->get('/menus', 'MenuController@index');
     $router->get('/menu', 'MenuController@menu');
-    $router->post('/create', 'MenuController@createMenu');
+    $router->post('/test', 'TestController@createWechatMenu');
 });

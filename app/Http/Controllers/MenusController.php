@@ -5,6 +5,7 @@ namespace App\Http\Controllers;
 use Illuminate\Http\Request;
 use EasyWeChat\Factory;
 use Exception;
+use App\Models\Menu;
 
 class MenusController extends Controller
 {
@@ -142,6 +143,7 @@ class MenusController extends Controller
 
     public function createMenu($parent, $new)
     {
+        //dd($this->getNameOfParentMenus());
         $parentTitles = $this->getNameOfParentMenus();
         if ($parent == 'root') {
             // 这种情况下创建一级标题
@@ -158,6 +160,7 @@ class MenusController extends Controller
             }
         } else {
             $index = $this->determineWhetherTiTleExists($parent, $parentTitles);
+            //dd($index);
             if ($index !== null) {
                 // 执行到这里说明该父级标题存在
                 // 接下来判断该父级标题下的二级标题数量是否超过上限
@@ -177,9 +180,10 @@ class MenusController extends Controller
      */
     public function index()
     {
+        //dd(Menu::whereNull('parent_id')->get());
         dd($this->app->menu->list());
         $input = [];
-        $input['parent'] = 'alice';
+        $input['parent'] = 'nrd';
         $input['type'] = 'view';
         $input['name'] = 'pan';
         $input['key'] = '';
@@ -212,6 +216,18 @@ class MenusController extends Controller
         //dd($input, $new);
         $res = $this->createMenu($parentName, $new);
         return $res;
+    }
+
+    /**
+     * Remove the specified resource from storage.
+     *
+     * @param  int  $id
+     * @return \Illuminate\Http\Response
+     */
+    public function destroy()
+    {
+        $this->app->menu->delete();
+        Menu::query()->delete();
     }
 
     /**
@@ -267,16 +283,5 @@ class MenusController extends Controller
     public function update(Request $request, $id)
     {
         //
-    }
-
-    /**
-     * Remove the specified resource from storage.
-     *
-     * @param  int  $id
-     * @return \Illuminate\Http\Response
-     */
-    public function destroy()
-    {
-        $this->app->menu->delete();
     }
 }
