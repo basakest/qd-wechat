@@ -1,21 +1,24 @@
 <?php
 
-//namespace Dcat\Admin\Controllers;
+//namespace Dcat\Admin\Http\Controllers;
 namespace App\Admin\Controllers;
 
+use App\Admin\Forms\Menu as FormsMenu;
 use Dcat\Admin\Form;
 use Dcat\Admin\Layout\Column;
 use Dcat\Admin\Layout\Content;
 use Dcat\Admin\Layout\Row;
-use Dcat\Admin\Models\Repositories\Menu;
+//use Dcat\Admin\Models\Repositories\Menu;
 use Dcat\Admin\Tree;
 use Dcat\Admin\Widgets\Box;
 use Dcat\Admin\Widgets\Form as WidgetForm;
 use App\Models\Menu as MenuModel;
-use Dcat\Admin\Controllers\AdminController;
+use Dcat\Admin\Http\Controllers\AdminController;
 use Dcat\Admin\Widgets\Alert;
 use Illuminate\Http\Request;
 use EasyWeChat\Factory;
+use Illuminate\Support\Facades\Redirect;
+use Dcat\Admin\Http\Repositories\Menu;
 
 class TestController extends AdminController
 {
@@ -24,9 +27,7 @@ class TestController extends AdminController
     protected $menuTypes =
     [
         'view' => '打开网址',
-        'text' => '响应文本',
-        'image' => '响应图片',
-        'miniprogram' => '打开小程序'
+        'click' => '响应文本',
     ];
 
     /**
@@ -48,6 +49,13 @@ class TestController extends AdminController
         return '公众号菜单';
     }
 
+    protected $description = [
+        'index'  => 'Index',
+        'show'   => 'Show',
+        'edit'   => 'Edit',
+        'create' => 'Create',
+    ];
+
     public function index(Content $content)
     {
         return $content
@@ -68,7 +76,7 @@ class TestController extends AdminController
                     $form = new WidgetForm();
                     # 设置表单提交的action
                     $form->action(admin_url('insert'));
-
+                    $form->allowAjaxSubmit(true);
                     $model = new MenuModel();
                     $form->select('parent_id', '父级')->options($model::selectOptions())->required();
                     $form->text('name', '菜单标题')->required()->placeholder('输入 菜单标题');
@@ -77,22 +85,71 @@ class TestController extends AdminController
                         ->when('view', function() use ($form) {
                             $form->url('url', '需要跳转的 url')->placeholder('输入 需要跳转的 url')->default('https://learnku.com/');
                         })
-                        ->when('text', function() use ($form) {
-                            $form->url('url', '需要跳转的 url')->placeholder('输入 需要跳转的 url')->default('https://learnku.com/');
-                        })
-                        ->when('image', function() use ($form) {
-                            $form->url('url', '需要跳转的 url')->placeholder('输入 需要跳转的 url')->default('https://learnku.com/');
-                        })
-                        ->when('miniprogram', function() use ($form) {
-                            $form->url('url', '需要跳转的 url')->placeholder('输入 需要跳转的 url')->default('https://learnku.com/');
+                        ->when('click', function() use ($form) {
                         });
                     $form->confirm('您确定要提交表单吗');
                     # 设置了相应的中间件，所以不添加这一行也可以
-                    # $form->hidden('_token')->default(csrf_token())
+                    $form->hidden('_token')->default(csrf_token());
                     $form->width(9, 2);
                     $column->append(Box::make(trans('admin.new'), $form));
                 });
             });
+    }
+
+    public function editForm(MenuModel $menu, Content $content)
+    {
+        return $content
+            ->title($menu->name)
+            ->description('编辑')
+            ->body(function (Row $row) use ($menu) {
+            //->body(function (Column $column) use ($menu) {
+                $row->column(12, function (Column $column) use ($menu) {
+                //$column->row(function (Row $row) use ($menu) {
+                    # 创建表单实例
+                    $form = new WidgetForm();
+                    # 设置表单提交的action
+                    $form->action(admin_url("test/$menu->id/save"));
+                    $form->allowAjaxSubmit(true);
+                    $form->select('parent_id', '父级')->options($menu::selectOptions())->required()->default($menu->parent_id);
+                    $form->text('name', '菜单标题')->required()->placeholder('输入 菜单标题')->value($menu->name);
+                    $form->text('key', '菜单 Key')->placeholder('输入 菜单key')->value($menu->key);
+                    $form->radio('type', '菜单类型')->options($this->menuTypes)
+                        ->when('view', function () use ($form, $menu) {
+                            $form->url('url', '需要跳转的 url')->placeholder('输入 需要跳转的 url')->default($menu->url);
+                        })
+                        ->when('click', function () use ($form) {
+                        })
+                        ->default($menu->type);
+                    $form->confirm('您确定要提交表单吗');
+                    # 设置了相应的中间件，所以不添加这一行也可以
+                    // $form->hidden('_token')->default(csrf_token());
+                    $form->allowAjaxSubmit(true);
+                    $form->width(9, 2);
+                    $column->append(Box::make(trans('admin.new'), $form));
+                });
+            });
+    }
+
+    public function saveForm($menu, Request $request, Form $form)
+    {
+        $new = [];
+        $new['parent_id'] = $request->parent_id ?? null;
+        $new['name'] = $request->name ?? null;
+        $new['key'] = $request->key ?? null;
+        $new['type'] = $request->type ?? null;
+        $new['url'] = $request->url ?? null;
+        $res = MenuModel::find($menu)->update($new);
+        if ($res) {
+            return $form->response()->success('修改成功', 'http://wechat.test/admin/test/');
+        } else {
+            return $form->response()->error('修改失败', 'http://wechat.test/admin/test/');
+        }
+    }
+
+    public function deleteMenu($menu)
+    {
+        MenuModel::destroy($menu);
+        redirect(admin_url('/test'));
     }
 
     /**
@@ -139,16 +196,11 @@ class TestController extends AdminController
      */
     public function form()
     {
-        $menuModel = config('admin.database.menu_model');
-
-        $relations = $menuModel::withPermission() ? ['permissions', 'roles'] : 'roles';
-
-        return Form::make(new Menu($relations), function (Form $form) use ($menuModel) {
+        $menuModel = MenuModel::class;
+        return Form::make(new MenuModel(), function (Form $form) use ($menuModel) {
             $form->tools(function (Form\Tools $tools) {
                 $tools->disableView();
             });
-
-            $form->display('id', 'ID');
 
             $form->select('parent_id', trans('admin.parent_id'))->options(function () use ($menuModel) {
                 return $menuModel::selectOptions();
@@ -156,47 +208,11 @@ class TestController extends AdminController
                 return (int) $v;
             });
             $form->text('name', '菜单标题')->required();
-            //$form->icon('icon', trans('admin.icon'))->help($this->iconHelp());
-            $form->text('uri', trans('admin.uri'));
-
-            if ($menuModel::withRole()) {
-                $form->multipleSelect('roles', trans('admin.roles'))
-                    ->options(function () {
-                        $roleModel = config('admin.database.roles_model');
-
-                        return $roleModel::all()->pluck('name', 'id');
-                    })
-                    ->customFormat(function ($v) {
-                        return array_column($v, 'id');
-                    });
-            }
-            if ($menuModel::withPermission()) {
-                $form->tree('permissions', trans('admin.permission'))
-                    ->nodes(function () {
-                        $permissionModel = config('admin.database.permissions_model');
-
-                        return (new $permissionModel())->allNodes();
-                    })
-                    ->customFormat(function ($v) {
-                        if (! $v) {
-                            return [];
-                        }
-
-                        return array_column($v, 'id');
-                    });
-            }
-
-            $form->display('created_at', trans('admin.created_at'));
-            $form->display('updated_at', trans('admin.updated_at'));
-        })->saved(function (Form $form, $result) {
-            if ($result) {
-                return $form->location('auth/menu', __('admin.save_succeeded'));
-            }
-
-            return $form->location('auth/menu', [
-                'message' => __('admin.nothing_updated'),
-                'status'  => false,
-            ]);
+            $form->radio('type', '菜单类型')->options($this->menuTypes)
+                 ->when('view', function () use ($form) {
+                     $form->url('url', '需要跳转的 url')->placeholder('输入 需要跳转的 url');
+                });
+            $form->allowAjaxSubmit(true);
         });
     }
 
@@ -204,13 +220,31 @@ class TestController extends AdminController
     {
         $input = [];
         $input['parent_id'] = $request->parent_id ?? null;
+        if (is_numeric($input['parent_id']) && $input['parent_id'] == 0) {
+            $num = MenuModel::where('parent_id', 0)->get()->count();
+            if ($num >= 3) {
+                return $form->response()->error('微信最多支持 3 个一级菜单！');
+            }
+        } else {
+            $num = MenuModel::where('parent_id', $input['parent_id'])->get()->count();
+            if ($num >= 5) {
+                return $form->response()->error('每个一级菜单下最多包含 5 个二级菜单！');
+            }
+        }
+        // 微信公众号只支持一级标题和二级标题，所以收到的parent_id只能为0
+        // 或者一级标题(parent_id==0)的id，如果不匹配，就提示相应的信息
+        $idsOfH1 = MenuModel::where('parent_id', 0)->get()->pluck('id')->toArray();
+        array_unshift($idsOfH1, 0);
+        if (!in_array($input['parent_id'], $idsOfH1)) {
+            return $form->error('微信公众号暂时只支持一级菜单和二级菜单');
+        }
         $input['name'] = $request->name ?? null;
         $input['key'] = $request->key ?? null;
         $input['type'] = $request->type ?? null;
         $input['url'] = $request->url ?? null;
         $res = MenuModel::create($input);
         if ($res) {
-            return $form->success('Processed successfully.', '/test');
+            return $form->response()->success('Processed successfully.', '/test');
         }
     }
 
@@ -234,7 +268,10 @@ class TestController extends AdminController
                 }
             }
         }
-        $this->app->menu->create($res['menu']['button']);
-        //dd($res['menu']['button']);
+        if (empty($res['menu']['button'])) {
+            $this->app->menu->delete();
+        } else {
+            $this->app->menu->create($res['menu']['button']);
+        }
     }
 }

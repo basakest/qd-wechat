@@ -22,7 +22,7 @@ return [
         /*
          * 使用 Laravel 的缓存系统
          */
-        'use_laravel_cache' => true,
+        'use_laravel_cache' => false,
 
         /**
          * 日志配置
@@ -37,13 +37,13 @@ return [
                 // 测试环境
                 'dev' => [
                     'driver' => 'single',
-                    'path' => '/tmp/easywechat.log',
-                    'level' => 'debug',
+                    'path' => env('WECHAT_LOG_FILE', storage_path('logs/wechat.log')),
+                    'level' => 'error',
                 ],
                 // 生产环境
                 'prod' => [
                     'driver' => 'daily',
-                    'path' => '/tmp/easywechat.log',
+                    'path' => env('WECHAT_LOG_FILE', storage_path('logs/wechat.log')),
                     'level' => 'info',
                 ],
             ],

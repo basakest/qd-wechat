@@ -19,3 +19,6 @@ Route::get('/', function () {
 
 Route::get('wechat', 'MenusController@index');
 Route::get('wechat/delete', 'MenusController@destroy');
+
+Route::any('/process', 'TestController@checkSignature');
+//Route::resource('/test', 'TestController');

@@ -18,5 +18,11 @@ Route::group([
     $router->resource('users', 'UserController');
     $router->get('/menus', 'MenuController@index');
     $router->get('/menu', 'MenuController@menu');
-    $router->post('/test', 'TestController@createWechatMenu');
+    //$router->get('/test/{menu}/edit', 'TestController@editForm');
+    $router->get('/test/{menu}/edit', 'TestController@edit');
+    //$router->post('/test/{id}/save', 'TestController@saveForm');
+    ///$router->any('/test/{id}', 'TestController@store');
+    $router->any('/test/{id}', 'TestController@saveForm');
+    $router->delete('/test/{id}', 'TestController@deleteMenu');
+    $router->post('/test', 'TestController@createWechatMenu')->name('test.index');
 });
