@@ -33,6 +33,21 @@ class Menu extends Model implements Sortable
 
     protected $primaryKey = 'id';
 
+    public function permissions()
+    {
+        return $this;
+    }
+
+    public function withPermission()
+    {
+        return false;
+    }
+
+    public function detach()
+    {
+        return true;
+    }
+
     public function getKeyName()
     {
         return $this->primaryKey;
@@ -41,6 +56,16 @@ class Menu extends Model implements Sortable
     public function getParentColumn()
     {
         return 'parent_id';
+    }
+
+    public function getOrderColumn()
+    {
+        return 'id';
+    }
+
+    public function getTitleColumn()
+    {
+        return 'name';
     }
 
     public function menus()
@@ -53,9 +78,9 @@ class Menu extends Model implements Sortable
      *
      * @param bool $force
      *
-     * @return array
+     * @return
      */
-    public function allNodes(bool $force = false): array
+    public function allNodes(bool $force = false)
     {
         if ($force || $this->queryCallbacks) {
             return $this->fetchAll();
@@ -69,12 +94,12 @@ class Menu extends Model implements Sortable
     /**
      * Fetch all elements.
      *
-     * @return array
+     * @return
      */
-    public function fetchAll(): array
+    public function fetchAll()
     {
-        return $this->withQuery()->treeAllNodes();
-        /*
+        //return $this->withQuery()->treeAllNodes();
+
         return $this->withQuery(function ($query) {
             if (static::withPermission()) {
                 $query = $query->with('permissions');
@@ -82,7 +107,7 @@ class Menu extends Model implements Sortable
 
             return $query->with('roles');
         })->treeAllNodes();
-        */
+
     }
 
     public function roles(): BelongsToMany

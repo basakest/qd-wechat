@@ -6,7 +6,7 @@ use App\Admin\Repositories\User;
 use Dcat\Admin\Form;
 use Dcat\Admin\Grid;
 use Dcat\Admin\Show;
-use Dcat\Admin\Controllers\AdminController;
+use Dcat\Admin\Http\Controllers\AdminController;
 
 class UserController extends AdminController
 {
@@ -26,10 +26,10 @@ class UserController extends AdminController
             $grid->column('remember_token');
             $grid->column('created_at');
             $grid->column('updated_at')->sortable();
-        
+
             $grid->filter(function (Grid\Filter $filter) {
                 $filter->equal('id');
-        
+
             });
         });
     }
@@ -69,7 +69,7 @@ class UserController extends AdminController
             $form->text('name');
             $form->text('password');
             $form->text('remember_token');
-        
+
             $form->display('created_at');
             $form->display('updated_at');
         });
